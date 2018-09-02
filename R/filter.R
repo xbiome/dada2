@@ -467,17 +467,15 @@ fastqFilter <- function(fn, fout, truncQ = 2, truncLen = 0, maxLen=Inf, minLen=2
   first=TRUE
   inseqs = 0
   outseqs = 0
-  stats_table <- list(inseq = 0,
-                      primer_fwd = 0,
-                      max_len = 0,
-                      trim_left = 0,
-                      truncQ = 0,
-                      min_len = 0,
-                      maxN = 0,
-                      minQ = 0,
-                      maxEE = 0,
-                      rm_phix = 0,
-                      outseq = 0)
+  stats_table <- c(primer_fwd = 0,
+                    max_len = 0,
+                    trim_left = 0,
+                    truncQ = 0,
+                    min_len = 0,
+                    maxN = 0,
+                    minQ = 0,
+                    maxEE = 0,
+                    rm_phix = 0)
   
   while( length(suppressWarnings(fq <- yield(f))) ){
     inseqs <- inseqs + length(fq)
@@ -488,18 +486,18 @@ fastqFilter <- function(fn, fout, truncQ = 2, truncLen = 0, maxLen=Inf, minLen=2
       fq <- fq[narrow(sread(fq),1,barlen) == primer.fwd]
     }
     
-    stats_table$primer_fwd <- stats_table$primer_fwd + length(fq)
+    stats_table[['primer_fwd']] <- stats_table[['primer_fwd']] + length(fq)
     
     # Enforce maxLen
     if(is.finite(maxLen)) { fq <- fq[width(fq) <= maxLen] }
     
-    stats_table$max_len <- stats_table$max_len + length(fq)
+    stats_table[['max_len']] <- stats_table[['max_len']] + length(fq)
     
     # Trim left
     fq <- fq[width(fq) >= start]
     fq <- narrow(fq, start = start, end = NA)
     
-    stats_table$trim_left <- stats_table$trim_left + length(fq)
+    stats_table[['trim_left']] <- stats_table[['trim_left']] + length(fq)
     
     # Trim on truncQ 
     # Convert numeric quality score to the corresponding ascii character
@@ -514,25 +512,25 @@ fastqFilter <- function(fn, fout, truncQ = 2, truncLen = 0, maxLen=Inf, minLen=2
     # Filter any with less than required length
     if(!is.na(end)) { fq <- fq[width(fq) >= end] }
     
-    stats_table$truncQ <- stats_table$truncQ + length(fq)
+    stats_table[['truncQ']] <- stats_table[['truncQ']] + length(fq)
     
     # Truncate to truncLen
     fq <- narrow(fq, start = 1, end = end)
     # Enforce minLen
     fq <- fq[width(fq) >= minLen]
     
-    stats_table$min_len <- stats_table$min_len + length(fq)
+    stats_table[['min_len']] <- stats_table[['min_len']] + length(fq)
     
     # Filter based on minQ and Ns and maxEE
     fq <- fq[nFilter(maxN)(fq)]
-    stats_table$maxN <- stats_table$maxN + length(fq)
+    stats_table[['maxN']] <- stats_table[['maxN']] + length(fq)
     
     keep <- rep(TRUE, length(fq))
     qq <- as(quality(fq), "matrix")
     if(minQ > truncQ) keep <- keep & (apply(qq, 1, min, na.rm=TRUE)>minQ) # Prob a faster trimTails trick
     fq <- fq[keep]
     
-    stats_table$minQ <- stats_table$minQ + length(fq)
+    stats_table[['minQ']] <- stats_table[['minQ']] + length(fq)
     
     keep <- rep(TRUE, length(fq))
     qq <- as(quality(fq), "matrix")
@@ -540,14 +538,14 @@ fastqFilter <- function(fn, fout, truncQ = 2, truncLen = 0, maxLen=Inf, minLen=2
       keep <- keep & C_matrixEE(qq) <= maxEE
     }
     fq <- fq[keep]
-    stats_table$maxEE <- stats_table$maxEE + length(fq)
+    stats_table[['maxEE']] <- stats_table[['maxEE']] + length(fq)
     
     # Remove phiX
     if(rm.phix) {
       is.phi <- isPhiX(as(sread(fq), "character"), ...)
       fq <- fq[!is.phi]
     }
-    stats_table$rm_phix <- stats_table$rm_phix + length(fq)
+    stats_table[['rm_phix']] <- stats_table[['rm_phix']] + length(fq)
     
     outseqs <- outseqs + length(fq)
     
@@ -558,9 +556,6 @@ fastqFilter <- function(fn, fout, truncQ = 2, truncLen = 0, maxLen=Inf, minLen=2
       writeFastq(fq, fout, "a", compress=compress)
     }
   }
-  
-  stats_table$inseq <- inseqs
-  stats_table$outseq <- outseqs
   
   if(verbose) {
     outperc <- round(outseqs * 100 / inseqs, 1)
@@ -573,8 +568,8 @@ fastqFilter <- function(fn, fout, truncQ = 2, truncLen = 0, maxLen=Inf, minLen=2
     file.remove(fout)
   }
   
-  res <- c(reads.in=inseqs, reads.out=outseqs)
-  attr(res, 'stats') <- stats_table
+  res <- c(reads.in=inseqs, stats_table, reads.out=outseqs)
+  #attr(res, 'stats') <- stats_table
   
   return(invisible(res))
 }
@@ -763,8 +758,7 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
   casava <- "Undetermined"
   inseqs = 0; outseqs = 0
  
-  stats_table <- list(inseq = 0,
-                      matchIDs = 0,
+  stats_table <- c(matchIDs = 0,
                       primer_fwd = 0,
                       max_len = 0,
                       trim_left = 0,
@@ -773,8 +767,7 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
                       maxN = 0,
                       minQ = 0,
                       maxEE = 0,
-                      rm_phix = 0,
-                      outseq = 0)
+                      rm_phix = 0)
   
   while( TRUE ) {
     suppressWarnings(fqF <- yield(fF))
@@ -837,7 +830,7 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
       fqR <- fqR[idsR %in% idsF]
     }
  
-    stats_table$matchIDs <- stats_table$matchIDs + length(fqF)
+    stats_table[['matchIDs']] <- stats_table[['matchIDs']] + length(fqF)
     
     # Enforce primer.fwd
     if(!is.null(primer.fwd)) {
@@ -854,7 +847,7 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
       rm(fq)
     }
     
-    stats_table$primer_fwd <- stats_table$primer_fwd + length(fqF)
+    stats_table[['primer_fwd']] <- stats_table[['primer_fwd']] + length(fqF)
     
     # Enforce maxLen
     if(is.finite(maxLen[[1]]) || is.finite(maxLen[[2]])) {
@@ -863,7 +856,7 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
       fqR <- fqR[keep]
     }
     
-    stats_table$max_len <- stats_table$max_len + length(fqF)
+    stats_table[['max_len']] <- stats_table[['max_len']] + length(fqF)
     
     # Trim left
     keep <- (width(fqF) >= startF & width(fqR) >= startR)
@@ -872,7 +865,7 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
     fqR <- fqR[keep]
     fqR <- narrow(fqR, start = startR, end = NA)
     
-    stats_table$trim_left = stats_table$trim_left + length(fqR)
+    stats_table[['trim_left']] = stats_table[['trim_left']] + length(fqR)
     
     # Trim on truncQ
     # Convert numeric quality score to the corresponding ascii character
@@ -899,7 +892,7 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
     fqF <- fqF[keep]
     fqR <- fqR[keep]
     
-    stats_table$truncQ <- stats_table$truncQ + length(fqF)
+    stats_table[['truncQ']] <- stats_table[['truncQ']] + length(fqF)
     
     # Filter any with less than required length
     keep <- rep(TRUE, length(fqF))
@@ -915,13 +908,13 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
     fqF <- fqF[keep]
     fqR <- fqR[keep]
 
-    stats_table$min_len <- stats_table$min_len + length(fqF)
+    stats_table[['min_len']] <- stats_table[['min_len']] + length(fqF)
     
     # Filter based on minQ and Ns and maxEE
     suppressWarnings(keep <- nFilter(maxN[[1]])(fqF) & nFilter(maxN[[2]])(fqR))
     fqF <- fqF[keep]; fqR <- fqR[keep]
     
-    stats_table$maxN <- stats_table$maxN + length(fqF)
+    stats_table[['maxN']] <- stats_table[['maxN']] + length(fqF)
     
     # Filter based on minQ
     keep <- rep(TRUE, length(fqF))
@@ -934,7 +927,7 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
     fqF <- fqF[keep]; fqR <- fqR[keep]
     rm(qmat)
    
-    stats_table$minQ <- stats_table$minQ + length(fqF)
+    stats_table[['minQ']] <- stats_table[['minQ']] + length(fqF)
     
     # Filter based on maxEE
     keep <- rep(TRUE, length(fqF))
@@ -947,7 +940,7 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
     fqF <- fqF[keep]; fqR <- fqR[keep]
     rm(qmat)
      
-    stats_table$maxEE <- stats_table$maxEE + length(fqF)
+    stats_table[['maxEE']] <- stats_table[['maxEE']] + length(fqF)
     
     if(length(fqF) != length(fqR)) stop("Filtering caused mismatch between forward and reverse sequence lists: ", length(fqF), ", ", length(fqR), ".")
     
@@ -965,7 +958,7 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
       fqR <- fqR[!is.phi]
     }
     
-    stats_table$rm_phix <- stats_table$rm_phix + length(fqF)
+    stats_table[['rm_phix']] <- stats_table[['rm_phix']] + length(fqF)
     
     outseqs <- outseqs + length(fqF)    
     
@@ -977,12 +970,6 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
       writeFastq(fqF, fout[[1]], "a", compress = compress)
       writeFastq(fqR, fout[[2]], "a", compress = compress)
     }
-  }
-  
-  stats_table$inseq <- inseqs
-  stats_table$outseq <- outseqs
-  
-  if(outseqs==0) {
   }
   
   if(verbose) {
@@ -997,8 +984,7 @@ fastqPairedFilter <- function(fn, fout, maxN = c(0,0), truncQ = c(2,2), truncLen
     file.remove(fout[[2]])
   }
   
-  res <- c(reads.in = inseqs, reads.out = outseqs)
-  attr(res, 'stats') <- stats_table
+  res <- c(reads.in = inseqs, stats_table, reads.out = outseqs)
     
   return(invisible(res))
 }
